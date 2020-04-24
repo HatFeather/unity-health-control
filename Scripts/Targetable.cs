@@ -108,6 +108,11 @@ namespace HatFeather.HealthControl
             {
                 return _deps.Remove(typeof(T));
             }
+
+            public bool contains<T>()
+            {
+                return _deps.ContainsKey(typeof(T));
+            }
         }
 
         [Serializable]

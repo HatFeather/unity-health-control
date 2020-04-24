@@ -11,37 +11,97 @@ namespace HatFeather.HealthControl.Editors.Tests
         [UnityTest]
         public IEnumerator killTarget()
         {
-            var mock = new Simulator();
-            yield return mock.setup();
+            var sim = new Sim();
+            yield return sim.setup();
 
-            mock.targetable.maxHealth = 100;
-            mock.targetable.health = 100;
+            sim.targetable.maxHealth = 100;
+            sim.targetable.health = 100;
 
-            Assert.AreEqual(0, mock.deathCount);
-            Assert.IsTrue(mock.totalHealthChange == 0);
-            Assert.AreEqual(0, mock.deathCount);
+            // make sure pre conditions are met
+            Assert.AreEqual(0, sim.deathCount);
+            Assert.True(sim.totalHealthChange == 0);
+            Assert.AreEqual(sim.targetable.health, sim.targetable.info.previousHealth);
+            Assert.AreEqual(sim.targetable.maxHealth, sim.targetable.info.previousMaxHealth);
+            Assert.AreEqual(sim.targetable.isDead, sim.targetable.info.previouslyDead);
 
             // 70 health
-            mock.targetable.dealDamage(30);
-            Assert.AreEqual(-30, mock.totalHealthChange);
-            Assert.AreEqual(70, mock.targetable.health);
+            sim.targetable.dealDamage(30);
+            Assert.AreEqual(-30, sim.totalHealthChange);
+            Assert.AreEqual(70, sim.targetable.health);
+            Assert.IsFalse(sim.targetable.info.previouslyDead);
+            Assert.IsFalse(sim.targetable.isDead);
 
             // 80 health
-            mock.targetable.restoreHealth(10);
-            Assert.AreEqual(-20, mock.totalHealthChange);
-            Assert.AreEqual(80, mock.targetable.health);
+            sim.targetable.restoreHealth(10);
+            Assert.AreEqual(-20, sim.totalHealthChange);
+            Assert.AreEqual(80, sim.targetable.health);
+            Assert.IsFalse(sim.targetable.info.previouslyDead);
+            Assert.IsFalse(sim.targetable.isDead);
 
             // -10 = 0 health = dead
-            mock.targetable.dealDamage(90);
-            Assert.AreEqual(-100, mock.totalHealthChange);
-            Assert.AreEqual(0, mock.targetable.health);
-            Assert.AreEqual(1, mock.deathCount);
-            Assert.IsTrue(mock.targetable.isDead);
+            sim.targetable.dealDamage(90);
+            Assert.AreEqual(-100, sim.totalHealthChange);
+            Assert.AreEqual(0, sim.targetable.health);
+            Assert.AreEqual(1, sim.deathCount);
+            Assert.AreEqual(80, sim.targetable.info.previousHealth);
+            Assert.True(sim.targetable.isDead);
+            Assert.IsFalse(sim.targetable.info.previouslyDead);
 
-            yield return mock.teardown();
+            // -90 = 0 health = dead (should only die once if already dead)
+            sim.targetable.dealDamage(90);
+            Assert.AreEqual(-100, sim.totalHealthChange);
+            Assert.AreEqual(0, sim.targetable.health);
+            Assert.AreEqual(1, sim.deathCount);
+            Assert.True(sim.targetable.isDead);
+            Assert.True(sim.targetable.info.previouslyDead);
+
+            yield return sim.teardown();
         }
 
-        private class Simulator
+        [UnityTest]
+        public IEnumerator injectContextInfo()
+        {
+            var sim = new Sim();
+            yield return sim.setup();
+
+            var targetable = sim.targetable;
+            targetable.maxHealth = 100;
+            targetable.health = 100;
+
+            // check pre conditions
+            Assert.False(targetable.context.contains<MockInfo>());
+            Assert.Null(targetable.context.get<MockInfo>());
+
+            // inject mock info
+            var mockInfo = new MockInfo();
+            sim.targetable.context.put(mockInfo);
+
+            // check post conditions
+            Assert.True(targetable.context.contains<MockInfo>());
+            Assert.NotNull(targetable.context.get<MockInfo>());
+            Assert.IsNull(targetable.context.get<MockInfo>().attackerName);
+            Assert.IsNull(targetable.context.get<MockInfo>().attackerPosition);
+
+            // simulate some info changes
+            targetable.context.get<MockInfo>().attackerName = "Batman";
+            targetable.context.get<MockInfo>().attackerPosition = Vector3.one;
+            targetable.dealDamage(30);
+
+            // verify changes took effect
+            Assert.AreEqual(targetable.context.get<MockInfo>().attackerName, "Batman");
+            Assert.AreEqual(targetable.context.get<MockInfo>().attackerPosition, Vector3.one);
+            Assert.AreEqual(70, targetable.health);
+
+            yield return sim.teardown();
+        }
+
+        private class MockInfo
+        {
+            public Vector3? attackerPosition { get; set; } = null;
+            public string attackerName { get; set; } = null;
+        }
+
+        private class Sim
         {
             public Targetable targetable;
 
@@ -73,7 +133,7 @@ namespace HatFeather.HealthControl.Editors.Tests
 
             private void onHealthChanged()
             {
-                totalHealthChange += targetable.health - (targetable.info.previousHealth ?? 0);
+                totalHealthChange += targetable.health - targetable.info.previousHealth;
                 healthChangeCount++;
             }
 
