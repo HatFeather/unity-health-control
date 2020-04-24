@@ -1,161 +1,132 @@
-﻿// using System;
-// using System.Collections;
-// using System.Collections.Generic;
-// using NUnit.Framework;
-// using UnityEngine;
-// using UnityEngine.TestTools;
+﻿using System;
+using System.Collections;
+using System.Collections.Generic;
+using NUnit.Framework;
+using UnityEngine;
+using UnityEngine.TestTools;
 
-// namespace HatFeather.HealthControl.Editors.Tests
-// {
-//     public class TargetableTest
-//     {
-//         [UnityTest]
-//         public IEnumerator killTarget()
-//         {
-//             var sim = new Sim();
-//             yield return sim.setup();
+namespace HatFeather.HealthControl.Editors.Tests
+{
+    public class TargetableTest
+    {
+        [Test]
+        public void killTarget()
+        {
+            var targetable = new MockTargetable();
+            targetable.setup();
 
-//             sim.targetable.maxHealth = 100;
-//             sim.targetable.health = 100;
+            // pre conditions
+            Assert.IsFalse(targetable.isDead);
+            Assert.AreEqual(0, targetable.deaths);
 
-//             // make sure pre conditions are met
-//             Assert.AreEqual(0, sim.deathCount);
-//             Assert.True(sim.totalHealthChange == 0);
-//             Assert.AreEqual(sim.targetable.health, sim.targetable.info.previousHealth);
-//             Assert.AreEqual(sim.targetable.maxHealth, sim.targetable.info.previousMaxHealth);
-//             Assert.AreEqual(sim.targetable.isDead, sim.targetable.info.previouslyDead);
+            // do some damage
+            targetable.pool.dealDamage(10);
+            Assert.IsFalse(targetable.isDead);
+            Assert.AreEqual(90, targetable.pool.health);
+            Assert.AreEqual(100, targetable.pool.maxHealth);
+            Assert.AreEqual(-10, targetable.deltaHealth);
+            Assert.AreEqual(0, targetable.deltaMaxHealth);
+            Assert.AreEqual(0, targetable.deaths);
 
-//             // 70 health
-//             sim.targetable.dealDamage(30);
-//             Assert.AreEqual(-30, sim.totalHealthChange);
-//             Assert.AreEqual(70, sim.targetable.health);
-//             Assert.IsFalse(sim.targetable.info.previouslyDead);
-//             Assert.IsFalse(sim.targetable.isDead);
+            // kill the target
+            targetable.pool.dealDamage(90);
+            Assert.IsTrue(targetable.isDead);
+            Assert.AreEqual(0, targetable.pool.health);
+            Assert.AreEqual(100, targetable.pool.maxHealth);
+            Assert.AreEqual(-100, targetable.deltaHealth);
+            Assert.AreEqual(0, targetable.deltaMaxHealth);
+            Assert.AreEqual(1, targetable.deaths);
 
-//             // 80 health
-//             sim.targetable.restoreHealth(10);
-//             Assert.AreEqual(-20, sim.totalHealthChange);
-//             Assert.AreEqual(80, sim.targetable.health);
-//             Assert.IsFalse(sim.targetable.info.previouslyDead);
-//             Assert.IsFalse(sim.targetable.isDead);
+            // can't die twice (shouldn't affect health)
+            targetable.pool.dealDamage(50);
+            Assert.IsTrue(targetable.isDead);
+            Assert.AreEqual(0, targetable.pool.health);
+            Assert.AreEqual(100, targetable.pool.maxHealth);
+            Assert.AreEqual(-100, targetable.deltaHealth);
+            Assert.AreEqual(0, targetable.deltaMaxHealth);
+            Assert.AreEqual(1, targetable.deaths);
 
-//             // -10 = 0 health = dead
-//             sim.targetable.dealDamage(90);
-//             Assert.AreEqual(-100, sim.totalHealthChange);
-//             Assert.AreEqual(0, sim.targetable.health);
-//             Assert.AreEqual(1, sim.deathCount);
-//             Assert.AreEqual(80, sim.targetable.info.previousHealth);
-//             Assert.True(sim.targetable.isDead);
-//             Assert.IsFalse(sim.targetable.info.previouslyDead);
+            targetable.tearDown();
+        }
 
-//             // -90 = 0 health = dead (should only die once if already dead)
-//             sim.targetable.dealDamage(90);
-//             Assert.AreEqual(-100, sim.totalHealthChange);
-//             Assert.AreEqual(0, sim.targetable.health);
-//             Assert.AreEqual(1, sim.deathCount);
-//             Assert.True(sim.targetable.isDead);
-//             Assert.True(sim.targetable.info.previouslyDead);
+        [Test]
+        public void injectContextInfo()
+        {
+            var targetable = new MockTargetable();
+            targetable.setup();
 
-//             yield return sim.teardown();
-//         }
+            // no mock info should exist
+            Assert.IsFalse(targetable.context.contains<MockInfo>());
+            Assert.IsNull(targetable.context.get<MockInfo>());
 
-//         [UnityTest]
-//         public IEnumerator injectContextInfo()
-//         {
-//             var sim = new Sim();
-//             yield return sim.setup();
+            var infoToInject = new MockInfo();
+            targetable.context.put(infoToInject);
 
-//             var targetable = sim.targetable;
-//             targetable.maxHealth = 100;
-//             targetable.health = 100;
+            // mock info should be injected
+            Assert.IsTrue(targetable.context.contains<MockInfo>());
+            Assert.IsNotNull(targetable.context.get<MockInfo>());
 
-//             // check pre conditions
-//             Assert.False(targetable.context.contains<MockInfo>());
-//             Assert.Null(targetable.context.get<MockInfo>());
+            targetable.context.get<MockInfo>().attackerName = "test";
+            targetable.context.get<MockInfo>().attackerPosition = Vector3.one;
+            targetable.context.get<MockInfo>().prevHealth = targetable.pool.health;
+            targetable.context.get<MockInfo>().prevMaxHealth = targetable.pool.maxHealth;
+            targetable.pool.health -= 50;
+            targetable.pool.maxHealth += 50;
 
-//             // inject mock info
-//             var mockInfo = new MockInfo();
-//             sim.targetable.context.put(mockInfo);
+            // the info changes should take effect
+            Assert.AreEqual(infoToInject, targetable.context.get<MockInfo>());
+            Assert.AreEqual("test", targetable.context.get<MockInfo>().attackerName);
+            Assert.AreEqual(Vector3.one, targetable.context.get<MockInfo>().attackerPosition);
+            Assert.AreEqual(100, targetable.context.get<MockInfo>().prevHealth);
+            Assert.AreEqual(100, targetable.context.get<MockInfo>().prevMaxHealth);
+            Assert.AreEqual(50, targetable.pool.health);
+            Assert.AreEqual(150, targetable.pool.maxHealth);
 
-//             // check post conditions
-//             Assert.True(targetable.context.contains<MockInfo>());
-//             Assert.NotNull(targetable.context.get<MockInfo>());
-//             Assert.IsNull(targetable.context.get<MockInfo>().attackerName);
-//             Assert.IsNull(targetable.context.get<MockInfo>().attackerPosition);
+            targetable.tearDown();
+        }
 
-//             // simulate some info changes
-//             targetable.context.get<MockInfo>().attackerName = "Batman";
-//             targetable.context.get<MockInfo>().attackerPosition = Vector3.one;
-//             targetable.dealDamage(30);
+        private class MockTargetable
+        {
+            public HealthPool pool = new HealthPool();
+            public HealthContext context = new HealthContext();
 
-//             // verify changes took effect
-//             Assert.AreEqual(targetable.context.get<MockInfo>().attackerName, "Batman");
-//             Assert.AreEqual(targetable.context.get<MockInfo>().attackerPosition, Vector3.one);
-//             Assert.AreEqual(70, targetable.health);
+            public int deaths;
+            public int deltaHealth;
+            public int deltaMaxHealth;
 
-//             yield return sim.teardown();
-//         }
+            public bool isDead => pool.isEmpty;
 
-//         private class MockTargetable
-//         {
-//             public HealthPool pool = new HealthPool();
-//             public HealthContext context = new HealthContext();
+            public void setup()
+            {
+                pool.healthChanged += onHealthChanged;
+                pool.maxHealthChanged += onMaxHealthChanged;
+            }
 
-//             public event Action onDie = null;
-//             public event Action onHealthChanged = null;
-//             public event Action onMaxHealthChanged = null;
-//         }
+            public void tearDown()
+            {
+                pool.healthChanged -= onHealthChanged;
+                pool.maxHealthChanged -= onMaxHealthChanged;
+            }
 
-//         private class MockInfo : IHealthContextInjectable
-//         {
-//             public int prevHealth { get; set; } = 0;
-//             public int prevMaxHealth { get; set; } = 0;
-//             public Vector3? attackerPosition { get; set; } = null;
-//             public string attackerName { get; set; } = null;
-//         }
+            void onHealthChanged(int prev, int curr)
+            {
+                if (pool.isEmpty)
+                    deaths++;
+                deltaHealth += curr - prev;
+            }
 
-//         private class Sim
-//         {
-//             public MockTargetable targetable;
-//             public HealthPool pool;
+            void onMaxHealthChanged(int prev, int curr)
+            {
+                deltaMaxHealth += curr - prev;
+            }
+        }
 
-//             public int totalHealthChange = 0;
-//             public int healthChangeCount = 0;
-//             public int maxHealthChangeCount = 0;
-//             public int deathCount = 0;
-
-//             public IEnumerator setup()
-//             {
-//                 targetable = new GameObject().AddComponent<HealthPool>();
-//                 yield return null;
-
-//                 targetable.events.onDie.AddListener(onDie);
-//                 targetable.events.onHealthChanged.AddListener(onHealthChanged);
-//                 targetable.events.onMaxHealthChanged.AddListener(onMaxHealthChanged);
-//                 targetable.restoreDefaultContext();
-//             }
-
-//             public IEnumerator teardown()
-//             {
-//                 GameObject.DestroyImmediate(targetable.gameObject);
-//                 yield return null;
-//             }
-
-//             private void onDie()
-//             {
-//                 deathCount++;
-//             }
-
-//             private void onHealthChanged()
-//             {
-//                 totalHealthChange += targetable.health - targetable.info.previousHealth;
-//                 healthChangeCount++;
-//             }
-
-//             private void onMaxHealthChanged()
-//             {
-//                 maxHealthChangeCount++;
-//             }
-//         }
-//     }
-// }
+        private class MockInfo : IHealthContextInjectable
+        {
+            public int prevHealth { get; set; } = 0;
+            public int prevMaxHealth { get; set; } = 0;
+            public Vector3? attackerPosition { get; set; } = null;
+            public string attackerName { get; set; } = null;
+        }
+    }
+}
