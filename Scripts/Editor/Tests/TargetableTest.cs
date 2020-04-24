@@ -118,7 +118,7 @@ namespace HatFeather.HealthControl.Editors.Tests
                 targetable.events.onDie.AddListener(onDie);
                 targetable.events.onHealthChanged.AddListener(onHealthChanged);
                 targetable.events.onMaxHealthChanged.AddListener(onMaxHealthChanged);
-                targetable.resetContext();
+                targetable.restoreDefaultContext();
             }
 
             public IEnumerator teardown()
