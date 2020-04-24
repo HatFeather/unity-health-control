@@ -57,13 +57,7 @@ namespace HatFeather.HealthControl
 
         private void Awake()
         {
-            var info = new GeneralTargetableInfo();
-
-            info.previousHealth = health;
-            info.previousMaxHealth = maxHealth;
-            info.previouslyDead = isDead;
-
-            context.put(info);
+            restoreDefaultContext();
         }
 
         public void dealDamage(int amount)
@@ -82,11 +76,28 @@ namespace HatFeather.HealthControl
                 health += amount;
         }
 
+        public void restoreDefaultContext()
+        {
+            var info = new GeneralTargetableInfo();
+
+            info.previousHealth = health;
+            info.previousMaxHealth = maxHealth;
+            info.previouslyDead = isDead;
+
+            context.clear();
+            context.put(info);
+        }
+
         public class Context
         {
             private Dictionary<Type, object> _deps = new Dictionary<Type, object>();
 
             internal Context() { }
+
+            public void clear()
+            {
+                _deps.Clear();
+            }
 
             public void put<T>(T value)
             {
@@ -101,7 +112,10 @@ namespace HatFeather.HealthControl
 
             public T get<T>()
             {
-                return (T)_deps[typeof(T)];
+                var type = typeof(T);
+                if (_deps.ContainsKey(type))
+                    return (T)_deps[type];
+                return default(T);
             }
 
             public bool remove<T>()
