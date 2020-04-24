@@ -3,10 +3,10 @@ using UnityEditor;
 
 namespace HatFeather.HealthControl.Editors
 {
-    [CustomEditor(typeof(Targetable))]
-    public class TargetableEditor : Editor
+    [CustomEditor(typeof(HealthPool))]
+    public class HealthPoolEditor : Editor
     {
-        private Targetable instance => target as Targetable;
+        private HealthPool instance => target as HealthPool;
 
         public override void OnInspectorGUI()
         {
