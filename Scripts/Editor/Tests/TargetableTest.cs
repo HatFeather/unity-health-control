@@ -11,7 +11,7 @@ namespace HatFeather.HealthControl.Editors.Tests
         [UnityTest]
         public IEnumerator killTarget()
         {
-            var mock = new Mock();
+            var mock = new Simulator();
             yield return mock.setup();
 
             mock.targetable.maxHealth = 100;
@@ -41,7 +41,7 @@ namespace HatFeather.HealthControl.Editors.Tests
             yield return mock.teardown();
         }
 
-        private class Mock
+        private class Simulator
         {
             public Targetable targetable;
 
@@ -73,7 +73,7 @@ namespace HatFeather.HealthControl.Editors.Tests
 
             private void onHealthChanged()
             {
-                totalHealthChange += delta.curr - delta.prev;
+                totalHealthChange += targetable.health - (targetable.info.previousHealth ?? 0);
                 healthChangeCount++;
             }
 

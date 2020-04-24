@@ -6,7 +6,7 @@ using UnityEngine.Events;
 
 namespace HatFeather.HealthControl
 {
-    public class Targetable : MonoBehaviour
+    public sealed class Targetable : MonoBehaviour
     {
         [SerializeField, Min(0)] private int _maxHealth = 100;
         [SerializeField, Min(0)] private int _health = 100;
@@ -55,6 +55,17 @@ namespace HatFeather.HealthControl
         public float percentHealth => (float)health / maxHealth;
         public bool isDead => health == 0;
 
+        private void Awake()
+        {
+            var info = new GeneralTargetableInfo();
+
+            info.previousHealth = health;
+            info.previousMaxHealth = maxHealth;
+            info.previouslyDead = isDead;
+
+            context.put(info);
+        }
+
         public void dealDamage(int amount)
         {
             Debug.Assert(amount >= 0);
@@ -75,14 +86,7 @@ namespace HatFeather.HealthControl
         {
             private Dictionary<Type, object> _deps = new Dictionary<Type, object>();
 
-            internal Context(params object[] startDeps)
-            {
-                foreach (var dep in startDeps)
-                {
-                    Debug.Log("injecting: " + dep.GetType());
-                    _deps[dep.GetType()] = dep;
-                }
-            }
+            internal Context() { }
 
             public void put<T>(T value)
             {
