@@ -5,13 +5,14 @@ using UnityEngine;
 
 namespace HatFeather.HealthControl
 {
-    public sealed class HealthPool : MonoBehaviour
+    [Serializable]
+    public sealed class HealthPool
     {
         public const int MaxHealthLowerBound = 1;
         public const int HealthLowerBound = 0;
 
-        [SerializeField, Min(MaxHealthLowerBound)] private int _maxHealth = 100;
-        [SerializeField, Min(HealthLowerBound)] private int _health = 100;
+        [SerializeField] private int _maxHealth = 100;
+        [SerializeField] private int _health = 100;
 
         public event HealthChangeCallback maxHealthChanged = null;
         public event HealthChangeCallback healthChanged = null;
@@ -49,7 +50,7 @@ namespace HatFeather.HealthControl
         }
 
         public float percentHealth => (float)health / maxHealth;
-        public bool isDead => health == HealthLowerBound;
+        public bool isEmpty => health == HealthLowerBound;
 
         public void dealDamage(int amount)
         {
