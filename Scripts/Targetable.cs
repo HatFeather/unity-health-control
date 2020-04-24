@@ -6,13 +6,11 @@ using UnityEngine.Events;
 
 namespace HatFeather.HealthControl
 {
-    public sealed class Targetable : MonoBehaviour
+    public class Targetable : MonoBehaviour
     {
         [SerializeField, Min(0)] private int _maxHealth = 100;
         [SerializeField, Min(0)] private int _health = 100;
         [SerializeField] private Events _events = new Events();
-
-        private Context _context = new Context();
 
         public int maxHealth
         {
@@ -21,9 +19,13 @@ namespace HatFeather.HealthControl
             {
                 Debug.Assert(value >= 1);
 
-                int prev = _health;
+                info.previousMaxHealth = _health;
                 _maxHealth = value;
-                events.raiseMaxHealthChanges(prev, value);
+
+                if (info.previousMaxHealth != value)
+                {
+                    events.onMaxHealthChanged.Invoke();
+                }
             }
         }
 
@@ -34,13 +36,21 @@ namespace HatFeather.HealthControl
             {
                 Debug.Assert(value >= 0);
 
-                int prev = _health;
+                info.previouslyDead = isDead;
+                info.previousHealth = _health;
                 _health = value;
-                events.raiseHealthChanges(prev, value);
+
+                if (info.previousHealth != value)
+                {
+                    events.onHealthChanged.Invoke();
+                    if (isDead && info.previousHealth != 0)
+                        events.onDie.Invoke();
+                }
             }
         }
 
-        public Context context => _context;
+        public GeneralTargetableInfo info => context.get<GeneralTargetableInfo>();
+        public Context context { get; private set; } = new Context();
         public Events events => _events;
         public float percentHealth => (float)health / maxHealth;
         public bool isDead => health == 0;
@@ -65,6 +75,15 @@ namespace HatFeather.HealthControl
         {
             private Dictionary<Type, object> _deps = new Dictionary<Type, object>();
 
+            internal Context(params object[] startDeps)
+            {
+                foreach (var dep in startDeps)
+                {
+                    Debug.Log("injecting: " + dep.GetType());
+                    _deps[dep.GetType()] = dep;
+                }
+            }
+
             public void put<T>(T value)
             {
                 if (value == null)
@@ -73,7 +92,7 @@ namespace HatFeather.HealthControl
                     return;
                 }
 
-                _deps[value.GetType()] = value;
+                _deps[typeof(T)] = value;
             }
 
             public T get<T>()
@@ -84,11 +103,6 @@ namespace HatFeather.HealthControl
             public bool remove<T>()
             {
                 return _deps.Remove(typeof(T));
-            }
-
-            public bool remove<T>(T value)
-            {
-                return remove<T>();
             }
         }
 
@@ -104,18 +118,6 @@ namespace HatFeather.HealthControl
             public HealthChangedEvent onHealthChanged => _onHealthChanged;
 
             internal Events() { }
-
-            internal void raiseHealthChanges(int prev, int curr)
-            {
-                _onHealthChanged.Invoke();
-                if (curr == 0 && prev > 0)
-                    onDie.Invoke();
-            }
-
-            internal void raiseMaxHealthChanges(int prev, int curr)
-            {
-                _onMaxHealthChanged.Invoke();
-            }
 
             [Serializable]
             public class DieEvent : UnityEvent { }
