@@ -1,3 +1,3 @@
 # Unity Health Control
 
-A generalized health control system for unity.
+A very simple, generalized health control system for Unity.
